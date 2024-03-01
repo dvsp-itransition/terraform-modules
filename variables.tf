@@ -32,5 +32,3 @@ variable "private_subnet_cidr_blocks" {
     eu-west-2b = "10.0.21.0/24",
   }   
 }
-
-

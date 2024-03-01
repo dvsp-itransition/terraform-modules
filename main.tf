@@ -44,6 +44,7 @@ resource "aws_subnet" "private_subnets" {
 
 # Public Route Table
 resource "aws_route_table" "public_route_tables" {
+  for_each = aws_subnet.public_subnets
   vpc_id = aws_vpc.demo-VPC.id
   
   route {
@@ -60,7 +61,7 @@ resource "aws_route_table" "public_route_tables" {
 resource "aws_route_table_association" "public_subnet_associations" {
   for_each = aws_subnet.public_subnets
   subnet_id      = each.value.id
-  route_table_id = aws_route_table.public_route_tables.id       
+  route_table_id = aws_route_table.public_route_tables[each.key].id    
 }
 
 # create elastic IP for NAT gateway
