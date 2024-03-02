@@ -1,5 +1,4 @@
-# VPC
-resource "aws_vpc" "demo-VPC" {
+resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   tags = {
@@ -8,36 +7,36 @@ resource "aws_vpc" "demo-VPC" {
   }
 }
 
-# Internet Gateway
-resource "aws_internet_gateway" "demo-IG" {
-  vpc_id = aws_vpc.demo-VPC.id
+resource "aws_internet_gateway" "this" {
+  vpc_id = aws_vpc.this.id
   tags = {
     Name = "${var.environment}-IG"
     environment = var.environment
   }
 }
 
-# Public Subnets
 resource "aws_subnet" "public_subnets" {
-  for_each          = var.public_subnet_cidr_blocks
-  vpc_id            = aws_vpc.demo-VPC.id
-  cidr_block        = each.value
+  for_each = local.subnet_cidr_blocks
+
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = each.value.public
   availability_zone = each.key
   map_public_ip_on_launch = true  
-  tags = {    
-    Name = "public_subnet"   
+  tags = {
+    Name = "${var.environment}-public-subnet"
     environment = var.environment
   }
 }
 
-# Private Subnets
 resource "aws_subnet" "private_subnets" {
-  for_each          = var.private_subnet_cidr_blocks
-  vpc_id            = aws_vpc.demo-VPC.id
-  cidr_block        = each.value
-  availability_zone = each.key  
-  tags = { 
-    Name = "private_subnet"   
+  for_each = local.subnet_cidr_blocks
+
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = each.value.private
+  availability_zone = each.key
+
+  tags = {
+    Name = "${var.environment}-private-subnet"
     environment = var.environment
   }
 }
@@ -45,15 +44,15 @@ resource "aws_subnet" "private_subnets" {
 # Public Route Table
 resource "aws_route_table" "public_route_tables" {
   for_each = aws_subnet.public_subnets
-  vpc_id = aws_vpc.demo-VPC.id
+  vpc_id = aws_vpc.this.id
   
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.demo-IG.id
+    gateway_id = aws_internet_gateway.this.id
   }
 
   tags = {
-    Name = "public_route_table"
+    Name = "${var.environment}-public_route_table"    
     environment = var.environment
   }
 }
@@ -67,9 +66,8 @@ resource "aws_route_table_association" "public_subnet_associations" {
 # create elastic IP for NAT gateway
 resource "aws_eip" "nat_gateway_eip" {
   for_each = aws_subnet.private_subnets
-
   tags = {
-    Name = "nat_gateway_eip"
+    Name = "${var.environment}-nat_gateway_eip"       
     environment = var.environment
   }
 }
@@ -83,7 +81,7 @@ resource "aws_nat_gateway" "nat_gateway" {
   subnet_id     = each.value.id
 
   tags = {
-    Name = "nat_gateway"
+    Name = "${var.environment}-nat_gateway"       
     environment = var.environment
   }  
 }
@@ -91,7 +89,7 @@ resource "aws_nat_gateway" "nat_gateway" {
 # create private route tables
 resource "aws_route_table" "private_route_tables" {
   for_each = aws_subnet.private_subnets
-  vpc_id = aws_vpc.demo-VPC.id
+  vpc_id = aws_vpc.this.id
   depends_on = [ aws_eip.nat_gateway_eip ]
 
   route {
@@ -100,7 +98,7 @@ resource "aws_route_table" "private_route_tables" {
   }
 
   tags = {
-    Name = "private_route_table"
+    Name = "${var.environment}-private_route_table"         
     environment = var.environment
   }
 }
@@ -110,4 +108,3 @@ resource "aws_route_table_association" "private_subnet_associations" {
   subnet_id      = each.value.id
   route_table_id = aws_route_table.private_route_tables[each.key].id  
 }
-
